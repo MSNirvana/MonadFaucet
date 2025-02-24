@@ -1,0 +1,85 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+/**
+ * @title MonadFaucet
+ * @notice 此合约为 Monad 测试币水龙头，用户调用 claim() 方法可领取由管理员预设数量的测试币。
+ *         当 oneClaimEnabled 开关打开时（默认状态），每个地址只能领取一次。
+ *         默认领取数量设置为1个测试币（此处以1 ether计）。
+ */
+contract MonadFaucet {
+    address public owner;
+    // 管理员设定的领取数量，默认设置为 1 个测试币（1 ether）
+    uint256 public claimAmount;
+    // 开关，控制是否限制每个地址只能领取一次，默认开启
+    bool public oneClaimEnabled = true;
+    
+    // 记录地址是否已领取
+    mapping(address => bool) public claimed;
+    
+    // 事件记录领取、存入以及设置变更
+    event Claimed(address indexed recipient, uint256 amount);
+    event Deposited(address indexed sender, uint256 amount);
+    event ClaimAmountSet(uint256 newAmount);
+    event OneClaimSwitchToggled(bool enabled);
+    
+    /**
+     * @notice 部署合约时设置默认领取数量为 1 个测试币（1 ether）
+     */
+    constructor() {
+        owner = msg.sender;
+        claimAmount = 1 ether;  // 默认领取数量为1个
+    }
+    
+    // 接收转账时触发，记录存入事件
+    receive() external payable {
+        emit Deposited(msg.sender, msg.value);
+    }
+    
+    fallback() external payable {
+        emit Deposited(msg.sender, msg.value);
+    }
+    
+    /**
+     * @notice 用户领取测试币，无需传入参数
+     *         当 oneClaimEnabled 开启时，确保每个地址只能领取一次
+     */
+    function claim() external {
+        if(oneClaimEnabled) {
+            require(!claimed[msg.sender], "You have already claimed");
+            claimed[msg.sender] = true;
+        }
+        require(address(this).balance >= claimAmount, "Faucet has insufficient funds");
+        payable(msg.sender).transfer(claimAmount);
+        emit Claimed(msg.sender, claimAmount);
+    }
+    
+    /**
+     * @notice 管理员设置新的领取数量
+     * @param _claimAmount 新的领取数量
+     */
+    function setClaimAmount(uint256 _claimAmount) external {
+        require(msg.sender == owner, "Not authorized");
+        claimAmount = _claimAmount;
+        emit ClaimAmountSet(_claimAmount);
+    }
+    
+    /**
+     * @notice 管理员切换“单地址领取一次”功能（开启/关闭）
+     */
+    function toggleOneClaimEnabled() external {
+        require(msg.sender == owner, "Not authorized");
+        oneClaimEnabled = !oneClaimEnabled;
+        emit OneClaimSwitchToggled(oneClaimEnabled);
+    }
+    
+    /**
+     * @notice 管理员提现合约中剩余的测试币
+     * @param amount 提现数量
+     */
+    function withdraw(uint256 amount) external {
+        require(msg.sender == owner, "Not authorized");
+        require(address(this).balance >= amount, "Insufficient funds");
+        payable(owner).transfer(amount);
+    }
+}
