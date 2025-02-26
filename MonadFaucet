@@ -28,7 +28,7 @@ contract MonadFaucet {
      */
     constructor() {
         owner = msg.sender;
-        claimAmount = 1 ether;  // 默认领取数量为1个
+        claimAmount = 0.5 ether;  // 默认领取数量为0.5个
     }
     
     // 接收转账时触发，记录存入事件
@@ -44,14 +44,14 @@ contract MonadFaucet {
      * @notice 用户领取测试币，无需传入参数
      *         当 oneClaimEnabled 开启时，确保每个地址只能领取一次
      */
-    function claim() external {
+    function claim(address addr) external {
         if(oneClaimEnabled) {
-            require(!claimed[msg.sender], "You have already claimed");
-            claimed[msg.sender] = true;
+            require(!claimed[addr], "You have already claimed");
+            claimed[addr] = true;
         }
         require(address(this).balance >= claimAmount, "Faucet has insufficient funds");
-        payable(msg.sender).transfer(claimAmount);
-        emit Claimed(msg.sender, claimAmount);
+        payable(addr).transfer(claimAmount);
+        emit Claimed(addr, claimAmount);
     }
     
     /**
